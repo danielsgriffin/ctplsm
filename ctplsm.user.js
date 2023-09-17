@@ -27,6 +27,96 @@
 (async function () {
     'use strict';
 
+    var llmModelSelected = "gpt-3.5-turbo";
+
+    let loggingPreference = await GM.getValue('loggingPreference', null);
+
+    if (loggingPreference === null) {
+        // User has not set a preference yet
+        const consent = confirm(`Message from Contextual Twitter Poultice for Learning So Much (ctplsm):
+        Do you want to enable logging for the ctplsm userscript?
+        This will help improve prompts and other features in the future.
+        Your data remains on your browser and is not sent anywhere.`);
+        if (consent) {
+            await GM.setValue('loggingPreference', true);
+            loggingPreference = true;
+        } else {
+            await GM.setValue('loggingPreference', false);
+            loggingPreference = false;
+        }
+    }
+
+    // for testing only!
+    // function clearLoggingPreference() {
+    // GM.setValue('loggingPreference', null).then(() => {
+    //     alert('Logging preference cleared!');
+    // });
+    // }
+
+    // // Code to add a button for clearing preference (for testing purposes only)
+    // const clearButton = document.createElement('button');
+    // clearButton.innerText = "Clear Logging Preference";
+    // clearButton.style.position = "fixed";
+    // clearButton.style.bottom = "10px";
+    // clearButton.style.right = "10px";
+    // clearButton.style.zIndex = "9999"; // Ensuring it stays on top
+    // clearButton.addEventListener('click', clearLoggingPreference);
+
+    // document.body.appendChild(clearButton);
+
+    function getLogs() {
+        // Retrieve logs from localStorage
+        const logs = localStorage.getItem('ctplsm_logs');
+
+        // Parse and return the logs, or an empty array if none exist
+        return logs ? JSON.parse(logs) : [];
+    }
+
+    function getFormattedTimestamp() {
+        const now = new Date().toISOString();
+        const date = now.slice(0, 10); // Extracts the date part: YYYY-MM-DD
+        const time = now.slice(11, 19).replace(/:/g, '-'); // Extracts the time part and replaces ':' with '-'
+
+        return `${date}_${time}`;
+    }
+
+
+    function addLog(entry) {
+        const logs = getLogs();
+
+        const serializedLogs = JSON.stringify(logs.concat(entry));
+        const sizeInBytes = new Blob([serializedLogs]).size;
+
+        if (sizeInBytes > 1000000) { // nearing 1MB
+            alert('Your log data is nearing 1MB. Please consider downloading and clearing logs.');
+            // You can also provide an option to download the logs here.
+            return;
+        }
+
+        localStorage.setItem('ctplsm_logs', serializedLogs);
+    }
+
+
+    function clearLogs() {
+        // Clear logs from localStorage
+        localStorage.removeItem('ctplsm_logs');
+    }
+
+    function downloadLogs() {
+        const logs = getLogs();
+        const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        const timestamp = getFormattedTimestamp();
+        a.download = `ctplsm_logs_${timestamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     // Retrieve the API key from local storage or prompt the user to enter it
     async function getApiKey() {
         let apiKey = await GM.getValue('apiKey');
@@ -38,10 +128,11 @@
         return apiKey;
     }
 
-    // Inside the main async function
     const apiKey = await getApiKey();
 
-    function callGPT3(system, inputText, callback) {
+    addLog({ event: 'llmModelSelected:', content: `${llmModelSelected}`, timestamp: new Date().toISOString() });
+
+    function requestLLM(system, inputText, callback) {
         const apiUrl = "https://api.openai.com/v1/chat/completions";
 
         GM_xmlhttpRequest({
@@ -53,7 +144,7 @@
                 'Accept': 'application/json'
             },
             data: JSON.stringify({
-                model: "gpt-3.5-turbo",
+                model: llmModelSelected,
                 messages: [
                     {
                         "role": "system",
@@ -80,6 +171,7 @@
 
     // 1. Extract the query parameter `q` from the URL.
     let query = new URLSearchParams(window.location.search).get('q');
+    addLog({ event: 'query', content: `${query}`, timestamp: new Date().toISOString() });
 
     // Base search URL for re-use
     const baseSearchURL = "https://twitter.com/search?q=";
@@ -199,10 +291,10 @@
 
 
 
-    function createSuggestedSearch(query, alt, gpt = false) {
+    function createSuggestedSearch(query, alt, llmQuery = false) {
 
-        // Use alt as newQuery if gpt is true, else combine query and alt
-        const newQuery = gpt ? alt.trim() : `${query} ${alt}`.trim();
+        // Use alt as newQuery if llmQuery is true, else combine query and alt
+        const newQuery = llmQuery ? alt.trim() : `${query} ${alt}`.trim();
 
         const newQueryLink = document.createElement('a');
         newQueryLink.setAttribute('id', 'ctplsm-new-query-link'); // Add an ID to the link for accessibility purposes
@@ -249,12 +341,12 @@
 
     // 6. Add a suggested search from OpenAI.
     contentDiv.appendChild(hr);
-    const gptDiv = document.createElement('div');
-    gptDiv.setAttribute('id', 'ctplsm-gpt-div'); // Add an ID to the div for accessibility purposes
-    gptDiv.setAttribute('title', 'Generated text'); // Add a title attribute to the div for accessibility purposes
-    gptDiv.setAttribute('aria-label', 'Generated text'); // Add an ARIA label to the div for accessibility purposes    gptDiv.style = "margin-top: 10px; padding: 5px; display: inline-block; border-radius: 3px;";
-    gptDiv.innerHTML = `A note and suggested query from gpt-3.5-turbo:\n`;
-    contentDiv.appendChild(gptDiv);
+    const suggestedSearchDiv = document.createElement('div');
+    suggestedSearchDiv.setAttribute('id', 'ctplsm-suggested-search-div'); // Add an ID to the div for accessibility purposes
+    suggestedSearchDiv.setAttribute('title', 'Generated text'); // Add a title attribute to the div for accessibility purposes
+    suggestedSearchDiv.setAttribute('aria-label', 'Generated text'); // Add an ARIA label to the div for accessibility purposes    suggestedSearchDiv.style = "margin-top: 10px; padding: 5px; display: inline-block; border-radius: 3px;";
+    suggestedSearchDiv.innerHTML = `A note and suggested query from ${llmModelSelected}:\n`;
+    contentDiv.appendChild(suggestedSearchDiv);
     contentDiv.appendChild(document.createElement('br')).setAttribute('role', 'separator');
 
     /**
@@ -283,6 +375,7 @@
     }
 
     var modifiedQueryObject = modifyQuery(query);
+    addLog({ event: 'modifiedQueryObject', content: `${modifiedQueryObject}`, timestamp: new Date().toISOString() });
     console.log(`modifiedQueryObject: ${modifiedQueryObject}`);
     var system = `
     You will be provided with a search query entered on Twitter.com.
@@ -296,10 +389,11 @@
 
     Expected output format:
     {suggested_query}`
-    callGPT3(system, modifiedQueryObject, function (response) {
-        const new_query_from_gpt3 = response.choices[0].message.content.trim();
-        createSuggestedSearch(query, new_query_from_gpt3, true);
-        console.log("new_query_from_gpt3:", new_query_from_gpt3)
+    requestLLM(system, modifiedQueryObject, function (response) {
+        const newQueryFromLLM = response.choices[0].message.content.trim();
+        createSuggestedSearch(query, newQueryFromLLM, true);
+        console.log("newQueryFromLLM:", newQueryFromLLM)
+        addLog({ event: 'newQueryFromLLM', content: `${newQueryFromLLM}`, timestamp: new Date().toISOString() });
     });
     console.log(`System message for suggested query: ${system}`);
     system = `
@@ -316,8 +410,9 @@
     You do NOT need to provide the original query in your response.`
     console.log(`System message for note: ${system}`);
     contentDiv.appendChild(document.createElement('br')).setAttribute('role', 'separator');
-    callGPT3(system, modifiedQueryObject, function (response) {
-        const noteFromGpt3 = response.choices[0].message.content.trim();
+    requestLLM(system, modifiedQueryObject, function (response) {
+        const noteFromLLM = response.choices[0].message.content.trim();
+        addLog({ event: 'noteFromLLM', content: `${noteFromLLM}`, timestamp: new Date().toISOString() });
 
         const noteDiv = document.createElement('div');
         noteDiv.setAttribute('id', 'ctplsm-note-div'); // Add an ID to the div for accessibility purposes
@@ -328,7 +423,7 @@
         noteDiv.style.padding = '10px'; // Optional: to give some spacing inside the bordered area
         noteDiv.style.overflowWrap = 'break-word'; // Ensures long words don't overflow
         const para = document.createElement('p')
-        para.innerHTML = noteFromGpt3;
+        para.innerHTML = noteFromLLM;
 
         noteDiv.appendChild(para); // Appends the paragraph to the note div
         contentDiv.appendChild(noteDiv); // Appends the note div to the main contentDiv
@@ -342,8 +437,11 @@
         contentDiv.appendChild(linkHeading);
 
         // 1. Construct the four query formats
-        const baseQuery = `Please find results on the web to verify or learn more about this statement: ${noteFromGpt3}`;
-        const metaphorQuery = `"${noteFromGpt3}" Verify or learn more here:`;
+        const baseQuery = `Please find results on the web to verify or learn more about this statement: ${noteFromLLM}`;
+        const metaphorQuery = `"${noteFromLLM}" Verify or learn more here:`;
+        addLog({ event: 'Check elsewhere: baseQuery', content: `${baseQuery}`, timestamp: new Date().toISOString() });
+
+        addLog({ event: 'Check elsewhere: metaphorQuery', content: `${metaphorQuery}`, timestamp: new Date().toISOString() });
 
         // 2. URL-encode each query
         const baseEncodedQuery = encodeURIComponent(baseQuery);
@@ -372,6 +470,15 @@
 
     });
 
+    // You can add this button to the UI for users to download logs:
+    const downloadButton = document.createElement('button');
+    downloadButton.innerText = 'Download Logs';
+    downloadButton.onclick = downloadLogs;
+    div.appendChild(downloadButton);
+
     document.body.appendChild(div);
 
+    // Testing
+    // addLog({event: 'testEvent', details: 'This is a test log.'});
+    // console.log(getLogs()); // to verify the logs in the console
 })();
