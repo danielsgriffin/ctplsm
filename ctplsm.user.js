@@ -335,7 +335,7 @@
     latestDiv.setAttribute('id', 'ctplsm-latest-div'); // Add an ID to the div for accessibility purposes
     latestDiv.setAttribute('title', 'Latest tweets'); // Add a title attribute to the div for accessibility purposes
     latestDiv.setAttribute('aria-label', 'Latest tweets'); // Add an ARIA label to the div for accessibility purposes
-    latestDiv.style = "margin-top: 10px; padding: 5px; background: yellow; display: inline-block; border-radius: 3px;";
+    latestDiv.style = "padding: 5px; background: yellow; display: inline-block; border-radius: 3px;";
     latestDiv.innerHTML = `<mark>Remember: <a href="${latestSearch}" target="_self">Latest</a></mark>`;
     contentDiv.appendChild(latestDiv);
 
@@ -344,10 +344,10 @@
     const suggestedSearchDiv = document.createElement('div');
     suggestedSearchDiv.setAttribute('id', 'ctplsm-suggested-search-div'); // Add an ID to the div for accessibility purposes
     suggestedSearchDiv.setAttribute('title', 'Generated text'); // Add a title attribute to the div for accessibility purposes
-    suggestedSearchDiv.setAttribute('aria-label', 'Generated text'); // Add an ARIA label to the div for accessibility purposes    suggestedSearchDiv.style = "margin-top: 10px; padding: 5px; display: inline-block; border-radius: 3px;";
+    suggestedSearchDiv.setAttribute('aria-label', 'Generated text'); // Add an ARIA label to the div for accessibility purposes
+    suggestedSearchDiv.style = "padding: 5px; display: inline-block; border-radius: 3px;";
     suggestedSearchDiv.innerHTML = `A note and suggested query from ${llmModelSelected}:\n`;
     contentDiv.appendChild(suggestedSearchDiv);
-    contentDiv.appendChild(document.createElement('br')).setAttribute('role', 'separator');
 
     /**
     * Modifies a query string and returns it in a specific format with an optional note.
@@ -420,9 +420,12 @@
         noteDiv.setAttribute('aria-label', 'Note'); // Add an ARIA label to the div for accessibility purposes
         noteDiv.style.maxWidth = '200px';
         noteDiv.style.border = '1px solid black'; // Adjust as needed, for example '1px solid #cccccc' for a light gray border
-        noteDiv.style.padding = '10px'; // Optional: to give some spacing inside the bordered area
+        noteDiv.style.padding = '5px'; // Optional: to give some spacing inside the bordered area
         noteDiv.style.overflowWrap = 'break-word'; // Ensures long words don't overflow
         const para = document.createElement('p')
+        para.setAttribute('id', 'ctplsm-note-para'); // Add an ID to the para for accessibility purposes
+        para.style.padding = '0';
+        para.style.margin = '0';
         para.innerHTML = noteFromLLM;
 
         noteDiv.appendChild(para); // Appends the paragraph to the note div
@@ -430,6 +433,8 @@
 
         // Create heading for links
         const linkHeading = document.createElement('h3');
+        linkHeading.style.padding = '0';
+        linkHeading.style.margin = '0';
         linkHeading.setAttribute('id', 'ctplsm-link-heading'); // Add an ID to the heading for accessibility purposes
         linkHeading.setAttribute('title', 'Links'); // Add a title attribute to the heading for accessibility purposes
         linkHeading.setAttribute('aria-label', 'Links'); // Add an ARIA label to the heading for accessibility purposes
@@ -458,13 +463,14 @@
         // 4. Create link elements for each search engine and append them to the document
         for (const { url, name } of urls) {
             const link = document.createElement('a');
-            link.setAttribute('id', 'ctplsm-link'); // Add an ID to the link for accessibility purposes
+            link.setAttribute('id', `ctplsm-link-${name.split(/[\s.]+/)[0].toLowerCase()}`); // Add an ID to the link for accessibility purposes
             link.setAttribute('title', name); // Add a title attribute to the link with the link name for accessibility purposes
             link.setAttribute('aria-label', name); // Add an ARIA label to the link with the link name for accessibility purposes
             link.href = url;
             link.innerHTML = name;
             link.target = "_blank"; // Opens link in a new tab/window
             link.style.display = "block"; // Makes each link appear on a new line
+            link.style.paddingLeft = "5px";
             contentDiv.appendChild(link);
         }
 
@@ -474,6 +480,9 @@
     const downloadButton = document.createElement('button');
     downloadButton.innerText = 'Download Logs';
     downloadButton.onclick = downloadLogs;
+    downloadButton.style.margin = "2px";
+    downloadButton.style.marginTop = "5px";
+
     div.appendChild(downloadButton);
 
     document.body.appendChild(div);
